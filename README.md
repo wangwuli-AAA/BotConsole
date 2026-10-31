@@ -58,7 +58,7 @@ flutter build windows --release --no-pub
 
 使用 Flutter 3.44.2 和安装了“使用 C++ 的桌面开发”组件的 Visual Studio。测试包含真实 Node 进程探针，需要 Windows 和 PATH 中可用的 Node。分发时需复制整个 `build\windows\x64\runner\Release` 文件夹，不能只复制 exe。
 
-依赖固定为 `sqlite3 3.5.2`、`fl_chart 1.3.0`。原计划的 sqlite3 3.8.0 依赖与当前 Flutter 固定的 meta 1.18.0 冲突，因此使用兼容版本，不覆盖 SDK 依赖。SQLite 通过 native assets 打包，分发必须包含 `sqlite3.dll` 和 `native_assets.json`。
+依赖固定为 `sqlite3 3.5.2`、`fl_chart 1.3.0`。原计划的 sqlite3 3.8.0 依赖与当前 Flutter 固定的 meta 1.18.0 冲突，因此使用兼容版本，不覆盖 SDK 依赖。SQLite 通过 native assets 打包，分发必须包含 `sqlite3.dll` 和 `data/flutter_assets/NativeAssetsManifest.json`。
 
 只读对账工具：`dart run tool/verify_usage.dart <数据库路径> [明细CSV路径]`。验证记录见 `VALIDATION.md`。
 

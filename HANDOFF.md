@@ -28,7 +28,7 @@ flutter build windows --release --no-pub
 
 ## 公开发布
 
-GitHub Actions 在 main/PR 推送及手动运行时分析、测试、编译；推送与 pubspec.yaml 对应的 v版本标签时发布 GitHub Release。Windows runner 安装 Node，测试不依赖开发者本机安装路径。Actions 固定 Flutter 版本与依赖锁文件。
+GitHub Actions 在 main/PR 推送及手动运行时分析、测试、编译；推送与 pubspec.yaml 对应的 v版本标签时发布 GitHub Release。Windows runner 安装 Node，测试不依赖开发者本机安装路径。Actions 固定 Flutter 版本与依赖锁文件。云端构建、29 项测试以及下载包的 SQLite/托盘实机回归已通过，记录见 VALIDATION.md。
 
 首次启动不预设 WebUI 令牌；默认服务目录探测应用旁或当前目录，可在设置覆盖。旧安装配置继续读取，不改外部服务或用户已有配置。
 
@@ -44,7 +44,7 @@ GitHub Actions 在 main/PR 推送及手动运行时分析、测试、编译；�
 - 查询代次防止过期结果覆盖；刷新失败保留旧值并提示过期；更换数据库清空旧源结果。页面可见时 60 秒刷新，其他页面或托盘隐藏暂停；恢复时刷新已过期结果。
 - 原生托盘位于 `windows/runner/flutter_window.*`，`bot_console/tray` 通道处理 `requestExit` / `visibilityChanged`。最小化与关闭收起，点击/菜单恢复，菜单退出经过 Dart 确认与 shutdown；Explorer 重启重新注册，注册失败恢复窗口避免丢失入口。
 - 初始窗口按显示器工作区限制大小，避免高 DPI 下窗口按钮和内容超出屏幕。
-- 依赖实际采用 `sqlite3 3.5.2`、`fl_chart 1.3.0`，锁文件已更新。sqlite3 3.8.0 的 hooks/record_use 要求 meta >=1.19，与 Flutter SDK 固定 1.18 冲突，未强行覆盖。Release 包含 SQLite 原生资源。
+- 依赖实际采用 `sqlite3 3.5.2`、`fl_chart 1.3.0`，锁文件已更新。sqlite3 3.8.0 的 hooks/record_use 要求 meta >=1.19，与 Flutter SDK 固定 1.18 冲突，未强行覆盖。Release 包含 SQLite DLL 和 `data/flutter_assets/NativeAssetsManifest.json`；干净构建不依赖根目录旧格式 `native_assets.json`。
 - **早期“仅是沙箱令牌限制”的推断已更正**：实测 shell 为中完整性（8192），旧 Release exe 继承低完整性文件标签，进程为低完整性（4096）。它会拒绝目录/日志写入，也无法注册托盘图标。仅将生成的 Release 目录标签设为 `(OI)(CI)M` 后，日志初始化、托盘隐藏与恢复均正常。后续重新生成产物时检查标签；未调整系统安全策略或 MaiBot 文件。
 - 临时数据库回归包含边界、归属、缓存、费用、组合筛选、只读/WAL 并发、独占写超时、100k 记录和全量导出；状态测试包含快速切换筛选与隐藏暂停；页面测试覆盖 1100 / 700 宽度。完整测试 **29 项通过**。
 - 隔离实机回归已通过：两个临时 Node 服务和子进程共六端口；最小化/关闭隐藏保持服务、托盘恢复、实际菜单、取消退出，以及确认退出后六端口全部释放，退出码 0。真实外部服务未被停止。

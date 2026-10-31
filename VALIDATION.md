@@ -6,7 +6,7 @@
 
 - `flutter analyze --no-pub`：无问题。
 - `flutter test --no-pub`：29 项通过（原有 14 项，加用量数据、状态及页面回归）。
-- `flutter build windows --release --no-pub`：成功；Release 包含 `sqlite3.dll`、`native_assets.json` 与 Flutter 资源。
+- `flutter build windows --release --no-pub`：成功；Release 包含 `sqlite3.dll`、`data/flutter_assets/NativeAssetsManifest.json` 与 Flutter 资源。
 - 将完整 Release 复制到工程外目录，暂时隐藏构建目录中的 SQLite DLL 后启动：首页及分析页正常读取本机数据库，退出码 0；运行时使用包内 SQLite 原生资源，未依赖构建目录。
 - 临时数据库：跨午夜、周一和自然月边界、半开端点、空时间桶、上一等长区间、零基数环比。
 - 同名会话分开、空 ID 和未知 ID、重复会话 ID 拒绝汇总、空元数据不放大调用、原始非空 ID 不被修剪合并。
@@ -57,3 +57,11 @@
 - 真实 QQ 登录、真实服务一键重启、真实白名单 UI 保存/热加载沿用早期未验收范围，本轮未操作这些外部状态。
 - 快照与后续明细/导出使用相同时间、筛选和记录 ID 上界；MaiBot 如在外部更新/删除既有记录，需刷新后重新对账。不是长期历史快照存储。
 - 数据总量与实际耗时会随本机持续运行变化；统计不补造未记录的历史/失败调用费用。
+
+## GitHub 公开发布验证
+
+- 公开仓库：`wangwuli-AAA/BotConsole`，源码不包含本机配置、数据库、调用导出和旧令牌。
+- 2026-10-31：提交 `3dd0b13` 的 [Windows Actions 构建](https://github.com/wangwuli-AAA/BotConsole/actions/runs/41198084695) 通过锁文件校验、静态分析、完整 29 项测试、Windows Release 编译与打包。
+- 云端 ZIP 下载后 SHA-256 校验一致；干净构建使用 `data/flutter_assets/NativeAssetsManifest.json`，不需要本机构建残留的根目录 `native_assets.json`。包内包含 SQLite DLL、Flutter DLL、应用和资源。
+- 云端包在工程外启动，以临时数据库显示 1,200 token、1 次调用、账面费用 0.0123 元，确认 SQLite 资源可用。隔离六端口临时服务的托盘隐藏/恢复、取消退出、确认退出和进程树清理通过，应用退出码 0。
+- 两个进程启动测试改为继承完整 Windows 环境；仅传 PATH 会使 runner 的 Node 加密初始化失败。正式服务启动本来就继承完整环境。
