@@ -18,7 +18,7 @@ void main() {
         'console.log("hello from child"); setTimeout(()=>{}, 1500)',
       ],
       workingDirectory: dir.path,
-      environment: {'PATH': Platform.environment['PATH'] ?? ''},
+      environment: Platform.environment,
       stdoutPath: outPath,
       stderrPath: errPath,
     );
