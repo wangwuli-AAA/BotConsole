@@ -426,247 +426,235 @@ class _UsagePageViewState extends State<UsagePageView> {
             ),
             const SizedBox(height: 14),
             Expanded(
-              child: SingleChildScrollView(
+              child: ListView(
                 key: const ValueKey('usage-scroll'),
                 padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (final entry in const {
-                          UsageRange.today: '今天',
-                          UsageRange.day: '近 24 小时',
-                          UsageRange.week: '7 天',
-                          UsageRange.month: '30 天',
-                          UsageRange.all: '全部',
-                          UsageRange.custom: '自定义',
-                        }.entries)
-                          ChoiceChip(
-                            label: Text(entry.value),
-                            selected: c.range == entry.key,
-                            onSelected: (_) {
-                              if (entry.key == UsageRange.custom) {
-                                _custom();
-                                return;
-                              }
-                              final q = UsageQuery.range(
-                                entry.key,
-                                grain: c.query.grain,
-                              );
-                              c.update(
-                                c.query.withRange(q.start, q.end, q.grain),
-                                selectedRange: entry.key,
-                              );
-                            },
-                          ),
-                        SizedBox(
-                          width: 135,
-                          child: DropdownButtonFormField<UsageGrain>(
-                            key: ValueKey(c.query.grain),
-                            initialValue: c.query.grain,
-                            decoration: const InputDecoration(
-                              labelText: '聚合粒度',
-                            ),
-                            items: [
-                              for (final e in const {
-                                UsageGrain.hour: '按小时',
-                                UsageGrain.day: '按日',
-                                UsageGrain.week: '按周',
-                                UsageGrain.month: '按月',
-                              }.entries)
-                                DropdownMenuItem(
-                                  value: e.key,
-                                  child: Text(e.value),
-                                ),
-                            ],
-                            onChanged: (grain) => c.update(
-                              c.query.withRange(
-                                c.query.start,
-                                c.query.end,
-                                grain!,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 12,
-                      children: [
-                        _filter('会话类型', 'type', c.query.sessionType, const [
-                          UsageGroup('group', '群聊', UsageMetrics()),
-                          UsageGroup('private', '私聊', UsageMetrics()),
-                          UsageGroup(
-                            'unattributed',
-                            '未归属（含后台任务）',
-                            UsageMetrics(),
-                          ),
-                          UsageGroup('unknown', '未知会话', UsageMetrics()),
-                        ]),
-                        _filter(
-                          '会话',
-                          'session',
-                          c.query.sessionId,
-                          (s?.options['session'] ?? [])
-                              .where(
-                                (g) =>
-                                    c.query.sessionType == null ||
-                                    g.type == c.query.sessionType,
-                              )
-                              .toList(),
-                        ),
-                        _filter(
-                          '模型 / 别名 / 供应商',
-                          'model',
-                          c.query.model,
-                          s?.options['model'] ?? [],
-                        ),
-                        _filter(
-                          '任务',
-                          'task',
-                          c.query.task,
-                          s?.options['task'] ?? [],
-                        ),
-                        _filter(
-                          '供应商',
-                          'provider',
-                          c.query.provider,
-                          s?.options['provider'] ?? [],
-                        ),
-                        _filter(
-                          '请求类型',
-                          'request',
-                          c.query.requestType,
-                          s?.options['request'] ?? [],
-                        ),
-                        TextButton(
-                          onPressed: () => c.update(
-                            UsageQuery(
-                              start: c.query.start,
-                              end: c.query.end,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final entry in const {
+                        UsageRange.today: '今天',
+                        UsageRange.day: '近 24 小时',
+                        UsageRange.week: '7 天',
+                        UsageRange.month: '30 天',
+                        UsageRange.all: '全部',
+                        UsageRange.custom: '自定义',
+                      }.entries)
+                        ChoiceChip(
+                          label: Text(entry.value),
+                          selected: c.range == entry.key,
+                          onSelected: (_) {
+                            if (entry.key == UsageRange.custom) {
+                              _custom();
+                              return;
+                            }
+                            final q = UsageQuery.range(
+                              entry.key,
                               grain: c.query.grain,
+                            );
+                            c.update(
+                              c.query.withRange(q.start, q.end, q.grain),
+                              selectedRange: entry.key,
+                            );
+                          },
+                        ),
+                      SizedBox(
+                        width: 135,
+                        child: DropdownButtonFormField<UsageGrain>(
+                          key: ValueKey(c.query.grain),
+                          initialValue: c.query.grain,
+                          decoration: const InputDecoration(labelText: '聚合粒度'),
+                          items: [
+                            for (final e in const {
+                              UsageGrain.hour: '按小时',
+                              UsageGrain.day: '按日',
+                              UsageGrain.week: '按周',
+                              UsageGrain.month: '按月',
+                            }.entries)
+                              DropdownMenuItem(
+                                value: e.key,
+                                child: Text(e.value),
+                              ),
+                          ],
+                          onChanged: (grain) => c.update(
+                            c.query.withRange(
+                              c.query.start,
+                              c.query.end,
+                              grain!,
                             ),
                           ),
-                          child: const Text('清除维度筛选'),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (c.loading) const LinearProgressIndicator(),
-                    if (c.error != null)
-                      _notice(c.error!.message, stale: s != null),
-                    if (c.exporting)
-                      const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Text('正在后台分批导出，期间仍可浏览页面。', style: _muted),
                       ),
-                    if (s != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: SelectableText(_rangeLabel(s), style: _muted),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 12,
+                    children: [
+                      _filter('会话类型', 'type', c.query.sessionType, const [
+                        UsageGroup('group', '群聊', UsageMetrics()),
+                        UsageGroup('private', '私聊', UsageMetrics()),
+                        UsageGroup(
+                          'unattributed',
+                          '未归属（含后台任务）',
+                          UsageMetrics(),
+                        ),
+                        UsageGroup('unknown', '未知会话', UsageMetrics()),
+                      ]),
+                      _filter(
+                        '会话',
+                        'session',
+                        c.query.sessionId,
+                        (s?.options['session'] ?? [])
+                            .where(
+                              (g) =>
+                                  c.query.sessionType == null ||
+                                  g.type == c.query.sessionType,
+                            )
+                            .toList(),
                       ),
-                      if (c.loading)
-                        const Text('正在读取新筛选，以下保留上次结果。', style: _muted),
-                      UsageMetricsView(snapshot: s),
-                      const SizedBox(height: 16),
-                      if (s.metrics.calls == 0)
-                        const SectionCard(
-                          title: '暂无用量',
-                          child: Text(
-                            '此筛选区间没有已记录的调用，请调整时间或筛选条件。',
-                            style: _muted,
+                      _filter(
+                        '模型 / 别名 / 供应商',
+                        'model',
+                        c.query.model,
+                        s?.options['model'] ?? [],
+                      ),
+                      _filter(
+                        '任务',
+                        'task',
+                        c.query.task,
+                        s?.options['task'] ?? [],
+                      ),
+                      _filter(
+                        '供应商',
+                        'provider',
+                        c.query.provider,
+                        s?.options['provider'] ?? [],
+                      ),
+                      _filter(
+                        '请求类型',
+                        'request',
+                        c.query.requestType,
+                        s?.options['request'] ?? [],
+                      ),
+                      TextButton(
+                        onPressed: () => c.update(
+                          UsageQuery(
+                            start: c.query.start,
+                            end: c.query.end,
+                            grain: c.query.grain,
                           ),
                         ),
-                      if (s.metrics.calls > 0) ...[
-                        _Insights(snapshot: s),
-                        const SizedBox(height: 16),
-                        _UsageTrend(snapshot: s, kind: 'tokens'),
-                        const SizedBox(height: 16),
-                        _pair(
-                          _UsageTrend(snapshot: s, kind: 'calls'),
-                          _UsageTrend(snapshot: s, kind: 'cost'),
-                        ),
-                        const SizedBox(height: 16),
+                        child: const Text('清除维度筛选'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (c.loading) const LinearProgressIndicator(),
+                  if (c.error != null)
+                    _notice(c.error!.message, stale: s != null),
+                  if (c.exporting)
+                    const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('正在后台分批导出，期间仍可浏览页面。', style: _muted),
+                    ),
+                  if (s != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: SelectableText(_rangeLabel(s), style: _muted),
+                    ),
+                    if (c.loading)
+                      const Text('正在读取新筛选，以下保留上次结果。', style: _muted),
+                    UsageMetricsView(snapshot: s),
+                    const SizedBox(height: 16),
+                    if (s.metrics.calls == 0)
+                      const SectionCard(
+                        title: '暂无用量',
+                        child: Text('此筛选区间没有已记录的调用，请调整时间或筛选条件。', style: _muted),
+                      ),
+                    if (s.metrics.calls > 0) ...[
+                      _Insights(snapshot: s),
+                      const SizedBox(height: 16),
+                      _UsageTrend(snapshot: s, kind: 'tokens'),
+                      const SizedBox(height: 16),
+                      _pair(
+                        _UsageTrend(snapshot: s, kind: 'calls'),
+                        _UsageTrend(snapshot: s, kind: 'cost'),
+                      ),
+                      const SizedBox(height: 16),
+                      _Distribution(
+                        title: '会话消耗排行 · 点击查看会话',
+                        groups: s.groups['session']!,
+                        total: s.metrics.tokens,
+                        onSelect: locked
+                            ? null
+                            : (g) => c.update(
+                                c.query
+                                    .filter('type', null)
+                                    .filter('session', g.key),
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      _pair(
                         _Distribution(
-                          title: '会话消耗排行 · 点击查看会话',
-                          groups: s.groups['session']!,
+                          title: '模型分布',
+                          groups: s.groups['model']!,
                           total: s.metrics.tokens,
                           onSelect: locked
                               ? null
-                              : (g) => c.update(
-                                  c.query
-                                      .filter('type', null)
-                                      .filter('session', g.key),
-                                ),
+                              : (g) => c.update(c.query.filter('model', g.key)),
                         ),
-                        const SizedBox(height: 16),
-                        _pair(
-                          _Distribution(
-                            title: '模型分布',
-                            groups: s.groups['model']!,
-                            total: s.metrics.tokens,
-                            onSelect: locked
-                                ? null
-                                : (g) =>
-                                      c.update(c.query.filter('model', g.key)),
-                          ),
-                          _Distribution(
-                            title: '任务分布',
-                            groups: s.groups['task']!,
-                            total: s.metrics.tokens,
-                            onSelect: locked
-                                ? null
-                                : (g) =>
-                                      c.update(c.query.filter('task', g.key)),
-                          ),
+                        _Distribution(
+                          title: '任务分布',
+                          groups: s.groups['task']!,
+                          total: s.metrics.tokens,
+                          onSelect: locked
+                              ? null
+                              : (g) => c.update(c.query.filter('task', g.key)),
                         ),
-                        const SizedBox(height: 16),
-                        _pair(
-                          _Distribution(
-                            title: '供应商分布',
-                            groups: s.groups['provider']!,
-                            total: s.metrics.tokens,
-                            onSelect: locked
-                                ? null
-                                : (g) => c.update(
-                                    c.query.filter('provider', g.key),
-                                  ),
-                          ),
-                          _Distribution(
-                            title: '请求类型分布',
-                            groups: s.groups['request']!,
-                            total: s.metrics.tokens,
-                            onSelect: locked
-                                ? null
-                                : (g) => c.update(
-                                    c.query.filter('request', g.key),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _Heatmap(snapshot: s),
-                      ],
-                      const SizedBox(height: 16),
-                      _UsageDetails(controller: c, locked: locked),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '统计 MaiBot 已记录的用量；总 token 使用原值，缓存不重复计入。费用为数据库账面费用，不重算价格。'
-                        '环比为上一等长区间，星期从周一开始；每 60 秒刷新，收进托盘暂停。',
-                        style: _muted,
                       ),
-                    ] else if (!c.loading && c.error == null)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('等待读取用量数据库。', style: _muted),
+                      const SizedBox(height: 16),
+                      _pair(
+                        _Distribution(
+                          title: '供应商分布',
+                          groups: s.groups['provider']!,
+                          total: s.metrics.tokens,
+                          onSelect: locked
+                              ? null
+                              : (g) =>
+                                    c.update(c.query.filter('provider', g.key)),
+                        ),
+                        _Distribution(
+                          title: '请求类型分布',
+                          groups: s.groups['request']!,
+                          total: s.metrics.tokens,
+                          onSelect: locked
+                              ? null
+                              : (g) =>
+                                    c.update(c.query.filter('request', g.key)),
+                        ),
                       ),
-                  ],
-                ),
+                      const SizedBox(height: 16),
+                      _Heatmap(snapshot: s),
+                    ],
+                    const SizedBox(height: 16),
+                    _UsageDetails(controller: c, locked: locked),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '统计 MaiBot 已记录的用量；总 token 使用原值，缓存不重复计入。费用为数据库账面费用，不重算价格。'
+                      '环比为上一等长区间，星期从周一开始；每 60 秒刷新，收进托盘暂停。',
+                      style: _muted,
+                    ),
+                  ] else if (!c.loading && c.error == null)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('等待读取用量数据库。', style: _muted),
+                    ),
+                ],
               ),
             ),
           ],

@@ -11,7 +11,8 @@ import 'theme.dart';
 
 /// 日志查看（自动增量刷新）。
 class LogsPage extends StatefulWidget {
-  const LogsPage({super.key});
+  const LogsPage({super.key, this.active = true});
+  final bool active;
 
   @override
   State<LogsPage> createState() => _LogsPageState();
@@ -25,39 +26,75 @@ class _LogsPageState extends State<LogsPage> {
   String? _error;
   Timer? _timer;
   final ScrollController _scroll = ScrollController();
-  LogTailer _tailer = LogTailer('');
+  String? _lastPath;
+  int? _lastSize;
+  DateTime? _lastModified;
+  List<String> _lines = const [];
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 1200), (_) => _poll());
+    _startPolling();
     WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  void _startPolling() {
+    _timer?.cancel();
+    if (widget.active) {
+      _timer = Timer.periodic(
+        const Duration(milliseconds: 1200),
+        (_) => _poll(),
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LogsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) {
+      _startPolling();
+      if (widget.active) _reload();
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _scroll.dispose();
-    _tailer.reset();
     super.dispose();
   }
 
   String _pathFor(ServiceKind kind, bool error) {
     final state = AppScope.of(context);
-    return error ? state.controller.errLogPath(kind) : state.controller.outLogPath(kind);
+    return error
+        ? state.controller.errLogPath(kind)
+        : state.controller.outLogPath(kind);
   }
 
-  void _reload() {
-    if (!mounted) return;
+  void _reload({bool force = true}) {
+    if (!mounted || !widget.active) return;
     final path = _pathFor(_kind, _showError);
-    if (path != _tailer.path) {
-      _tailer.reset();
-      _tailer = LogTailer(path);
-    }
     try {
-      final text = LogTailer.readTail(path, maxLines: 400).join('\n');
-      if (!mounted) return;
+      final stat = File(path).statSync();
+      if (!force &&
+          _error == null &&
+          path == _lastPath &&
+          stat.size == _lastSize &&
+          stat.modified == _lastModified) {
+        return;
+      }
+      final lines = LogTailer.readTail(
+        path,
+        maxLines: 400,
+        maxBytes: 64 * 1024,
+      );
+      final text = lines.join('\n');
+      _lastPath = path;
+      _lastSize = stat.size;
+      _lastModified = stat.modified;
+      if (text == _content && _error == null) return;
       setState(() {
+        _lines = lines;
         _content = text;
         _error = null;
       });
@@ -71,7 +108,7 @@ class _LogsPageState extends State<LogsPage> {
   void _poll() {
     if (!mounted) return;
     if (!_follow) return;
-    _reload();
+    _reload(force: false);
   }
 
   void _scrollToBottom() {
@@ -96,11 +133,20 @@ class _LogsPageState extends State<LogsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('日志', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    Text(
+                      '日志',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     SizedBox(height: 4),
                     Text(
                       '两个服务的 stdout / stderr 全部落在这里，边跑边看',
-                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -138,7 +184,11 @@ class _LogsPageState extends State<LogsPage> {
               Expanded(
                 child: SelectableText(
                   _pathFor(_kind, _showError),
-                  style: const TextStyle(fontSize: 11, fontFamily: 'Consolas', color: AppColors.textMuted),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
               FilterChip(
@@ -178,7 +228,9 @@ class _LogsPageState extends State<LogsPage> {
                     return;
                   }
                   try {
-                    await Process.start('notepad.exe', [path], mode: ProcessStartMode.detached);
+                    await Process.start('notepad.exe', [
+                      path,
+                    ], mode: ProcessStartMode.detached);
                   } catch (e) {
                     if (mounted) {
                       // ignore: use_build_context_synchronously
@@ -202,24 +254,29 @@ class _LogsPageState extends State<LogsPage> {
                   ? Center(
                       child: Text(
                         _error!,
-                        style: const TextStyle(color: AppColors.danger, fontSize: 12),
+                        style: const TextStyle(
+                          color: AppColors.danger,
+                          fontSize: 12,
+                        ),
                       ),
                     )
                   : Scrollbar(
                       controller: _scroll,
                       thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        controller: _scroll,
-                        padding: const EdgeInsets.all(14),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: SelectableText(
-                            _content.isEmpty ? '（暂无日志）' : _content,
+                      child: SelectionArea(
+                        child: ListView.builder(
+                          controller: _scroll,
+                          padding: const EdgeInsets.all(14),
+                          itemCount: _lines.isEmpty ? 1 : _lines.length,
+                          itemBuilder: (context, index) => Text(
+                            _lines.isEmpty ? '（暂无日志）' : _lines[index],
                             style: TextStyle(
                               fontSize: 11.5,
                               height: 1.5,
                               fontFamily: 'Consolas',
-                              color: _content.isEmpty ? AppColors.textMuted : AppColors.textPrimary,
+                              color: _lines.isEmpty
+                                  ? AppColors.textMuted
+                                  : AppColors.textPrimary,
                             ),
                           ),
                         ),
@@ -231,7 +288,7 @@ class _LogsPageState extends State<LogsPage> {
           Align(
             alignment: Alignment.centerRight,
             child: Text(
-              '${state.controller.statusOf(_kind).state.name} · 每 1.2 秒增量刷新',
+              '${state.controller.statusOf(_kind).state.name} · 末尾 400 行 / 64 KB · 每 1.2 秒检查更新',
               style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ),

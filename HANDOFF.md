@@ -1,6 +1,6 @@
 # BotConsole 开发交接
 
-最后更新：2026-10-31。Windows Flutter 桌面应用，控制 SnowLuma/MaiBot 并只读分析用量。
+最后更新：2026-11-01。Windows Flutter 桌面应用，控制 SnowLuma/MaiBot 并只读分析用量。
 
 ## 构建与验证
 
@@ -13,7 +13,7 @@ flutter test --no-pub
 flutter build windows --release --no-pub
 ```
 
-当前完整测试 29 项。统计、只读/WAL 并发、10 万条记录导出、托盘及子进程清理详见 VALIDATION.md。
+当前完整测试 33 项。统计、只读/WAL 并发、10 万条记录导出、托盘及子进程清理详见 VALIDATION.md。
 
 ## 代码入口
 
@@ -34,7 +34,16 @@ GitHub Actions 在 main/PR 推送及手动运行时分析、测试、编译；�
 
 仓库不包含真实 settings.json、数据库、白名单、调用明细导出或带真实数据的截图。早期内部交接历史及本机令牌已移出公开版本。
 
-## 托盘与会话用量分析（最新交接，2026-10-31）
+## v1.0.1 内存约束（2026-11-01）
+
+- `windows/runner/main.cpp` 启动时通过 `SetProcessWorkingSetSizeEx` 设置 96 MiB 工作集硬上限，标记为 `HARDWS_MAX_ENABLE | HARDWS_MIN_DISABLE`。只作用于主进程，不限制服务 Job，也不设置提交内存硬限额。不能把提交内存解释为低于 100 MB。
+- 原有全页面常驻导致日志页在其他页面和托盘中仍每 1.2 秒读取/排版日志。现在总览、日志、图表仅在选中时构建，表单首次访问后保留未保存内容；隐藏时暂停日志轮询与动画，健康状态变化不再触发隐藏页面重建。
+- 日志页用惰性列表渲染可见行，预览 400 行 / 64 KiB，大小和修改时间未变化时跳过读取。健康日志分块读取且限制未结束行，流式 UTF-8 解码保留跨块字符。
+- 分析页改为惰性 ListView，避免进入页面时立即构建所有图表及 100 条明细；原有两种宽度的滚动、热力图和明细回归通过。
+- `tool/verify_memory.ps1` 检查真实工作集上限标记、最大值及采样峰值，单独报告提交内存；Actions 构建后执行。测试追加大日志、无换行、UTF-8 边界及日志隐藏/恢复，共 33 项。
+- 当前用户正在运行的旧实例不通过强制停止升级，避免结束它管理的真实服务。源码构建在隔离 worktree 进行；新发布包在托盘退出后替换使用。
+
+## 托盘与会话用量分析（2026-10-31）
 
 - 新增 `lib/usage/usage_models.dart`、`usage_repository.dart`、`usage_controller.dart`、`lib/ui/usage_page.dart`。服务启停与统计独立维护状态；首页与分析各有控制器，首页始终为近 24 小时摘要。
 - 侧边栏新增“用量分析”（索引 4，原设置仍为索引 3）；设置增加 `usageDatabasePath`，旧配置缺失时默认 `<maibot.dir>/data/MaiBot.db`，保存保留未知键。

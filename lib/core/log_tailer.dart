@@ -13,6 +13,18 @@ class LogTailer {
   int _offset = 0;
   String _pending = '';
   bool _started = false;
+  static const _readLimit = 64 * 1024;
+  final _decoded = StringBuffer();
+  late ByteConversionSink _decoder = _newDecoder();
+
+  ByteConversionSink _newDecoder() => const Utf8Decoder(
+    allowMalformed: true,
+  ).startChunkedConversion(StringConversionSink.fromStringSink(_decoded));
+
+  void _resetDecoder() {
+    _decoded.clear();
+    _decoder = _newDecoder();
+  }
 
   /// 读取自上次调用以来的新行。
   ///
@@ -29,6 +41,7 @@ class LogTailer {
       // 文件被清空或轮转
       _offset = 0;
       _pending = '';
+      _resetDecoder();
     }
     if (length <= _offset) return const [];
 
@@ -36,17 +49,27 @@ class LogTailer {
     final raf = file.openSync(mode: FileMode.read);
     try {
       raf.setPositionSync(_offset);
-      bytes = raf.readSync(length - _offset);
-      _offset = length;
+      // Drain bursts in bounded chunks, including logs without newlines.
+      final remaining = length - _offset;
+      bytes = raf.readSync(remaining > _readLimit ? _readLimit : remaining);
+      _offset += bytes.length;
     } finally {
       raf.closeSync();
     }
 
-    final text = _pending + utf8.decode(bytes, allowMalformed: true);
+    _decoder.add(bytes);
+    final text = _pending + _decoded.toString();
+    _decoded.clear();
     final lines = text.split('\n');
     _pending = lines.removeLast();
+    if (_pending.length > _readLimit) {
+      _pending = _pending.substring(_pending.length - _readLimit);
+    }
     return lines
-        .map((line) => line.endsWith('\r') ? line.substring(0, line.length - 1) : line)
+        .map(
+          (line) =>
+              line.endsWith('\r') ? line.substring(0, line.length - 1) : line,
+        )
         .toList();
   }
 
@@ -55,6 +78,7 @@ class LogTailer {
     final file = File(path);
     _started = true;
     _pending = '';
+    _resetDecoder();
     _offset = file.existsSync() ? file.lengthSync() : 0;
   }
 
@@ -62,6 +86,7 @@ class LogTailer {
     _started = false;
     _offset = 0;
     _pending = '';
+    _resetDecoder();
   }
 
   /// 日志文件过大时轮转成 `.1`（最多保留一份旧的）。
@@ -79,12 +104,15 @@ class LogTailer {
   }
 
   /// 读取日志末尾若干行（用于界面首次展示）。
-  static List<String> readTail(String path, {int maxLines = 3000}) {
+  static List<String> readTail(
+    String path, {
+    int maxLines = 3000,
+    int maxBytes = 256 * 1024,
+  }) {
     final file = File(path);
     if (!file.existsSync()) return const [];
-    const chunk = 256 * 1024;
     final length = file.lengthSync();
-    final start = length > chunk ? length - chunk : 0;
+    final start = length > maxBytes ? length - maxBytes : 0;
     final raf = file.openSync(mode: FileMode.read);
     try {
       raf.setPositionSync(start);

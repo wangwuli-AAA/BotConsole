@@ -51,6 +51,9 @@ jobs:
           }
       - name: Build Windows Release
         run: flutter build windows --release --no-pub
+      - name: Verify resident memory budget
+        shell: pwsh
+        run: ./tool/verify_memory.ps1 -Exe build/windows/x64/runner/Release/bot_console.exe
       - name: Package portable app
         shell: pwsh
         run: |

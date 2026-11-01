@@ -34,10 +34,12 @@ class AppState extends ChangeNotifier {
   int selectedPage = 0;
 
   void updateUsageVisibility({bool? visible, int? page}) {
+    final visibilityChanged = visible != null && visible != windowVisible;
     windowVisible = visible ?? windowVisible;
     selectedPage = page ?? selectedPage;
     dashboardUsage.setVisible(windowVisible && selectedPage == 0);
     usage.setVisible(windowVisible && selectedPage == 4);
+    if (visibilityChanged) notifyListeners();
   }
 
   String? lastError;
@@ -46,7 +48,10 @@ class AppState extends ChangeNotifier {
     AppPaths.ensureDirs();
     settings = store.load();
     usage = UsageController(settings.usageDatabaseResolved);
-    dashboardUsage = UsageController(settings.usageDatabaseResolved, includeDetails: false);
+    dashboardUsage = UsageController(
+      settings.usageDatabaseResolved,
+      includeDetails: false,
+    );
     controller = ServiceController(settings: settings);
     health = HealthMonitor(settings: settings, controller: controller);
     whitelist = WhitelistStore(
@@ -201,6 +206,15 @@ class _Shell extends StatefulWidget {
 
 class _ShellState extends State<_Shell> {
   int _index = 0;
+  final Set<int> _visitedPages = {0};
+
+  void _selectPage(int index) {
+    setState(() {
+      _index = index;
+      _visitedPages.add(index);
+    });
+    AppScope.of(context).updateUsageVisibility(page: index);
+  }
 
   static const List<_NavItem> _items = [
     _NavItem('总览', Icons.dashboard_outlined, Icons.dashboard),
@@ -220,14 +234,17 @@ class _ShellState extends State<_Shell> {
             MaterialBanner(
               content: Tooltip(
                 message: AppPaths.logsWarning!,
-                child: Text(AppPaths.logsWarning!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  AppPaths.logsWarning!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               leading: const Icon(Icons.warning_amber_rounded),
               actions: [
                 TextButton(
                   onPressed: () {
-                    setState(() => _index = 3);
-                    state.updateUsageVisibility(page: 3);
+                    _selectPage(3);
                   },
                   child: const Text('查看位置'),
                 ),
@@ -236,34 +253,47 @@ class _ShellState extends State<_Shell> {
           Expanded(
             child: Row(
               children: [
-                _Sidebar(
-                  items: _items,
-                  index: _index,
-                  onSelect: (i) {
-                    setState(() => _index = i);
-                    state.updateUsageVisibility(page: i);
-                  },
-                ),
+                _Sidebar(items: _items, index: _index, onSelect: _selectPage),
                 const VerticalDivider(width: 1),
                 Expanded(
                   child: ListenableBuilder(
                     listenable: Listenable.merge([
-                      state.controller,
-                      state.health,
+                      if (state.windowVisible && (_index == 0 || _index == 2))
+                        state.controller,
+                      if (state.windowVisible && _index == 0) state.health,
                       state,
                     ]),
-                    builder: (context, _) => IndexedStack(
-                      index: _index,
-                      children: [
-                        DashboardPage(onOpenUsage: () {
-                          setState(() => _index = 4);
-                          state.updateUsageVisibility(page: 4);
-                        }),
-                        const WhitelistPage(),
-                        const LogsPage(),
-                        const SettingsPage(),
-                        UsagePageView(controller: state.usage),
-                      ],
+                    builder: (context, _) => TickerMode(
+                      enabled: state.windowVisible,
+                      child: Offstage(
+                        offstage: !state.windowVisible,
+                        child: IndexedStack(
+                          index: _index,
+                          children: [
+                            if (_index == 0)
+                              DashboardPage(onOpenUsage: () => _selectPage(4))
+                            else
+                              const SizedBox.shrink(),
+                            // Retain unsaved forms; heavy pages live only while selected.
+                            if (_visitedPages.contains(1))
+                              const WhitelistPage()
+                            else
+                              const SizedBox.shrink(),
+                            if (_index == 2)
+                              LogsPage(active: state.windowVisible)
+                            else
+                              const SizedBox.shrink(),
+                            if (_visitedPages.contains(3))
+                              const SettingsPage()
+                            else
+                              const SizedBox.shrink(),
+                            if (_index == 4)
+                              UsagePageView(controller: state.usage)
+                            else
+                              const SizedBox.shrink(),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

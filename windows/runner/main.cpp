@@ -7,6 +7,15 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Bound resident RAM, not commit: failing allocations would break service
+  // supervision. This applies only to this process, never to the bot Jobs.
+  constexpr SIZE_T kResidentLimit = 96 * 1024 * 1024;
+  if (!SetProcessWorkingSetSizeEx(
+          GetCurrentProcess(), 1024 * 1024, kResidentLimit,
+          QUOTA_LIMITS_HARDWS_MIN_DISABLE | QUOTA_LIMITS_HARDWS_MAX_ENABLE)) {
+    OutputDebugStringW(L"BotConsole: unable to apply resident memory limit.\n");
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
